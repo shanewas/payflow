@@ -1,43 +1,44 @@
 const { body, validationResult } = require('express-validator');
 
-const validate = (req, res, next) => {
+const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
-  if (errors.isEmpty()) {
-    return next();
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
-  const extractedErrors = [];
-  errors.array().map(err => extractedErrors.push({ [err.param]: err.msg }));
-
-  return res.status(422).json({
-    errors: extractedErrors,
-  });
+  next();
 };
 
-const registerValidation = () => {
-  return [
-    body('email').isEmail().withMessage('Must be a valid email address'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
-    body('full_name').notEmpty().withMessage('Full name is required'),
-  ];
-};
+const validateRegistration = [
+  body('email').isEmail().withMessage('Enter a valid email address'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long')
+    .matches(/\d/)
+    .withMessage('Password must contain a number')
+    .matches(/[a-z]/)
+    .withMessage('Password must contain a lowercase letter')
+    .matches(/[A-Z]/)
+    .withMessage('Password must contain an uppercase letter'),
+  body('firstName').not().isEmpty().withMessage('First name is required'),
+  body('lastName').not().isEmpty().withMessage('Last name is required'),
+  handleValidationErrors,
+];
 
-const loginValidation = () => {
-    return [
-      body('email').isEmail().withMessage('Must be a valid email address'),
-      body('password').notEmpty().withMessage('Password is required'),
-    ];
-};
+const validateLogin = [
+  body('email').isEmail().withMessage('Enter a valid email address'),
+  body('password').not().isEmpty().withMessage('Password is required'),
+  handleValidationErrors,
+];
 
-const paymentIntentValidation = () => {
-    return [
-        body('amount').isInt({ gt: 0 }).withMessage('Amount must be a positive integer'),
-        body('currency').isString().isIn(['USD', 'EUR', 'GBP']).withMessage('Invalid currency'),
-    ]
-}
+const validatePaymentCreation = [
+    body('amount').isFloat({ gt: 0 }).withMessage('Amount must be a positive number'),
+    body('currency').isISO4217().withMessage('Invalid currency code'),
+    handleValidationErrors,
+];
+
 
 module.exports = {
-  validate,
-  registerValidation,
-  loginValidation,
-  paymentIntentValidation
+  validateRegistration,
+  validateLogin,
+  validatePaymentCreation,
 };

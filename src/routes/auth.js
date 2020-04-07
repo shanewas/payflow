@@ -1,13 +1,15 @@
 const express = require('express');
+const { validateRegistration, validateLogin } = require('../middleware/validate');
 const User = require('../models/User');
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateToken, generateRefreshToken } = require('../utils/jwt');
 
 const router = express.Router();
 
-router.post('/register', async (req, res, next) => {
+router.post('/register', validateRegistration, async (req, res, next) => {
   try {
-    const { email, password, full_name } = req.body;
+    const { email, password, firstName, lastName } = req.body;
+    const fullName = `${firstName} ${lastName}`.trim();
 
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
@@ -15,7 +17,7 @@ router.post('/register', async (req, res, next) => {
     }
 
     const password_hash = await hashPassword(password);
-    const user = await User.create({ email, password_hash, full_name });
+    const user = await User.create({ email, password_hash, full_name: fullName });
 
     const token = generateToken({ userId: user.id });
 
@@ -25,13 +27,9 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', validateLogin, async (req, res, next) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required.' });
-    }
 
     const user = await User.findByEmail(email);
     if (!user) {
