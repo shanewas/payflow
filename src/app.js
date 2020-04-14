@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
+const errorHandler = require('./middleware/errorHandler');
 
 const authRoutes = require('./routes/auth');
 
@@ -17,5 +18,8 @@ app.use('/auth', authRoutes);
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
+
+// Global error handler
+app.use(errorHandler);
 
 module.exports = app;
