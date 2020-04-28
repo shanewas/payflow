@@ -1,35 +1,43 @@
 const express = require('express');
 const { stripe } = require('../config/stripe');
-const auth = require('../middleware/auth');
-const { paymentIntentValidation, validate } = require('../middleware/validate');
+const authMiddleware = require('../middleware/auth');
+const { validatePaymentCreation } = require('../middleware/validate');
 const Payment = require('../models/Payment');
 
 const router = express.Router();
 
-// Create a new payment intent
-router.post('/intent', auth, paymentIntentValidation(), validate, async (req, res, next) => {
-  try {
-    const { amount, currency } = req.body;
-    const { id: userId } = req.user;
+router.post(
+    '/intent',
+    authMiddleware,
+    validatePaymentCreation,
+    async (req, res, next) => {
+        try {
+            const { amount, currency } = req.body;
+            const userId = req.user.id;
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100, // Amount in cents
-      currency,
-      metadata: { userId },
-    });
+            // Create a PaymentIntent with the order amount and currency
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: Math.round(amount * 100), // convert to cents
+                currency,
+                metadata: { userId },
+            });
 
-    await Payment.create({
-      user_id: userId,
-      stripe_payment_intent_id: paymentIntent.id,
-      amount: amount,
-      currency,
-      status: 'pending',
-    });
+            // Save the payment intent to our database
+            await Payment.create({
+                user_id: userId,
+                stripe_payment_intent_id: paymentIntent.id,
+                amount,
+                currency,
+                status: 'pending',
+            });
 
-    res.status(201).json({ clientSecret: paymentIntent.client_secret });
-  } catch (error) {
-    next(error);
-  }
-});
+            res.status(201).send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
 
 module.exports = router;
