@@ -2,7 +2,7 @@ const express = require('express');
 const { stripe } = require('../config/stripe');
 const auth = require('../middleware/auth');
 const { paymentIntentValidation, validate } = require('../middleware/validate');
-// const Payment = require('../models/Payment'); // To be added in Phase 19
+const Payment = require('../models/Payment');
 
 const router = express.Router();
 
@@ -18,14 +18,13 @@ router.post('/intent', auth, paymentIntentValidation(), validate, async (req, re
       metadata: { userId },
     });
 
-    // TODO: Phase 19 - Save the payment intent to the database
-    // await Payment.create({
-    //   user_id: userId,
-    //   stripe_payment_intent_id: paymentIntent.id,
-    //   amount: amount,
-    //   currency,
-    //   status: 'pending',
-    // });
+    await Payment.create({
+      user_id: userId,
+      stripe_payment_intent_id: paymentIntent.id,
+      amount: amount,
+      currency,
+      status: 'pending',
+    });
 
     res.status(201).json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
