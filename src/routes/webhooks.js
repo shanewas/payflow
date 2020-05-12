@@ -1,17 +1,15 @@
 const express = require('express');
-const { stripe } = require('../config/stripe');
+const stripe = require('../config/stripe');
 const Payment = require('../models/Payment');
 
 const router = express.Router();
 
-router.post('/stripe', async (req, res, next) => {
+router.post('/stripe', express.raw({ type: 'application/json' }), async (req, res, next) => {
   const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error(`Webhook signature verification failed.`, err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -19,38 +17,26 @@ router.post('/stripe', async (req, res, next) => {
 
   // Handle the event
   switch (event.type) {
-    case 'payment_intent.succeeded': {
-      const paymentIntent = event.data.object;
-      console.log(`PaymentIntent for ${paymentIntent.amount} was successful!`);
-      const payment = await Payment.findByStripeId(paymentIntent.id);
-      if (payment) {
-        await Payment.updateStatus(payment.id, 'succeeded');
-      }
+    case 'payment_intent.succeeded':
+      const paymentIntentSucceeded = event.data.object;
+      await Payment.updateStatusByStripeId(paymentIntentSucceeded.id, 'succeeded');
+      console.log(`PaymentIntent for ${paymentIntentSucceeded.amount} was successful!`);
       break;
-    }
-    case 'payment_intent.payment_failed': {
-      const paymentIntent = event.data.object;
-      console.log(`PaymentIntent for ${paymentIntent.amount} failed.`);
-      const payment = await Payment.findByStripeId(paymentIntent.id);
-      if (payment) {
-        await Payment.updateStatus(payment.id, 'failed');
-      }
+    case 'payment_intent.payment_failed':
+      const paymentIntentFailed = event.data.object;
+      await Payment.updateStatusByStripeId(paymentIntentFailed.id, 'failed');
+      console.log(`PaymentIntent for ${paymentIntentFailed.amount} failed.`);
       break;
-    }
-    case 'payment_intent.canceled': {
-        const paymentIntent = event.data.object;
-        console.log(`PaymentIntent for ${paymentIntent.amount} was canceled.`);
-        const payment = await Payment.findByStripeId(paymentIntent.id);
-        if (payment) {
-          await Payment.updateStatus(payment.id, 'canceled');
-        }
+    case 'payment_intent.canceled':
+        const paymentIntentCanceled = event.data.object;
+        await Payment.updateStatusByStripeId(paymentIntentCanceled.id, 'canceled');
+        console.log(`PaymentIntent for ${paymentIntentCanceled.amount} was canceled.`);
         break;
-      }
     default:
       console.log(`Unhandled event type ${event.type}`);
   }
 
-  res.status(200).json({ received: true });
+  res.send();
 });
 
 module.exports = router;

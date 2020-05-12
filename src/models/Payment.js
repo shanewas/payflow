@@ -31,6 +31,14 @@ const Payment = {
     );
     return rows[0];
   },
+
+  async updateStatusByStripeId(stripeId, status) {
+    const { rows } = await db.query(
+      'UPDATE payments SET status = $1 WHERE stripe_payment_intent_id = $2 RETURNING *',
+      [status, stripeId]
+    );
+    return rows[0];
+  }
 };
 
 module.exports = Payment;

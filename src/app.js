@@ -6,6 +6,7 @@ const errorHandler = require('./middleware/errorHandler');
 
 const authRoutes = require('./routes/auth');
 const paymentRoutes = require('./routes/payments');
+const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use('/auth', authRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/webhooks', webhookRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
