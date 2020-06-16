@@ -6,6 +6,22 @@ const Payment = require('../models/Payment');
 
 const router = express.Router();
 
+// @route   GET /payments
+// @desc    Get user's payment history with pagination and filtering
+// @access  Private
+router.get('/', authMiddleware, async (req, res, next) => {
+    try {
+        const { status, page = 1, limit = 10 } = req.query;
+        const userId = req.user.id;
+
+        const results = await Payment.findByUserIdWithFilters(userId, { status, page, limit });
+
+        res.json(results);
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.post(
     '/intent',
     authMiddleware,
