@@ -67,6 +67,19 @@ const Payment = {
       [status, stripeId]
     );
     return rows[0];
+  },
+
+  async findDetailsById(id) {
+    const { rows } = await db.query(
+      `SELECT
+         p.*,
+         row_to_json(o.*) as order
+       FROM payments p
+       LEFT JOIN orders o ON p.id = o.payment_id
+       WHERE p.id = $1`,
+      [id]
+    );
+    return rows[0];
   }
 };
 

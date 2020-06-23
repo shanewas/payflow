@@ -22,6 +22,33 @@ router.get('/', authMiddleware, async (req, res, next) => {
     }
 });
 
+// @route   GET /payments/:id
+// @desc    Get payment details
+// @access  Private
+router.get('/:id', authMiddleware, async (req, res, next) => {
+    try {
+        const paymentId = parseInt(req.params.id, 10);
+        if (isNaN(paymentId)) {
+            return res.status(400).json({ message: 'Invalid payment ID.' });
+        }
+        const userId = req.user.id;
+
+        const payment = await Payment.findDetailsById(paymentId);
+
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment not found.' });
+        }
+
+        if (payment.user_id !== userId) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        res.json(payment);
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.post(
     '/intent',
     authMiddleware,
