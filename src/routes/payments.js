@@ -49,6 +49,53 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
     }
 });
 
+// @route   POST /payments/:id/refund
+// @desc    Refund a payment
+// @access  Private
+router.post('/:id/refund', authMiddleware, async (req, res, next) => {
+    try {
+        const paymentId = parseInt(req.params.id, 10);
+        if (isNaN(paymentId)) {
+            return res.status(400).json({ message: 'Invalid payment ID.' });
+        }
+        const userId = req.user.id;
+
+        const payment = await Payment.findById(paymentId);
+
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment not found.' });
+        }
+
+        if (payment.user_id !== userId) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        if (payment.status !== 'succeeded') {
+            return res.status(400).json({ message: 'Payment is not in a refundable state.' });
+        }
+
+        // Create a refund via Stripe
+        const refund = await stripe.refunds.create({
+            payment_intent: payment.stripe_payment_intent_id,
+        });
+
+        // Update payment status in our database
+        const updatedPayment = await Payment.updateStatus(payment.id, 'refunded');
+
+        res.json({
+            message: 'Refund successful',
+            payment: updatedPayment,
+            refund,
+        });
+    } catch (error) {
+        // Handle Stripe-specific errors
+        if (error.type === 'StripeInvalidRequestError') {
+            return res.status(400).json({ message: error.message });
+        }
+        next(error);
+    }
+});
+
 router.post(
     '/intent',
     authMiddleware,
