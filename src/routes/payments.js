@@ -3,13 +3,14 @@ const { stripe } = require('../config/stripe');
 const authMiddleware = require('../middleware/auth');
 const { validatePaymentCreation } = require('../middleware/validate');
 const Payment = require('../models/Payment');
+const { generalLimiter, paymentIntentLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
 // @route   GET /payments
 // @desc    Get user's payment history with pagination and filtering
 // @access  Private
-router.get('/', authMiddleware, async (req, res, next) => {
+router.get('/', generalLimiter, authMiddleware, async (req, res, next) => {
     try {
         const { status, page = 1, limit = 10 } = req.query;
         const userId = req.user.id;
@@ -25,7 +26,7 @@ router.get('/', authMiddleware, async (req, res, next) => {
 // @route   GET /payments/:id
 // @desc    Get payment details
 // @access  Private
-router.get('/:id', authMiddleware, async (req, res, next) => {
+router.get('/:id', generalLimiter, authMiddleware, async (req, res, next) => {
     try {
         const paymentId = parseInt(req.params.id, 10);
         if (isNaN(paymentId)) {
@@ -52,7 +53,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
 // @route   POST /payments/:id/refund
 // @desc    Refund a payment
 // @access  Private
-router.post('/:id/refund', authMiddleware, async (req, res, next) => {
+router.post('/:id/refund', generalLimiter, authMiddleware, async (req, res, next) => {
     try {
         const paymentId = parseInt(req.params.id, 10);
         if (isNaN(paymentId)) {
@@ -98,6 +99,7 @@ router.post('/:id/refund', authMiddleware, async (req, res, next) => {
 
 router.post(
     '/intent',
+    paymentIntentLimiter,
     authMiddleware,
     validatePaymentCreation,
     async (req, res, next) => {

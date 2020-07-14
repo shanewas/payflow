@@ -3,10 +3,11 @@ const { validateRegistration, validateLogin } = require('../middleware/validate'
 const User = require('../models/User');
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateToken, generateRefreshToken } = require('../utils/jwt');
+const { generalLimiter, loginLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-router.post('/register', validateRegistration, async (req, res, next) => {
+router.post('/register', generalLimiter, validateRegistration, async (req, res, next) => {
   try {
     const { email, password, firstName, lastName } = req.body;
     const fullName = `${firstName} ${lastName}`.trim();
@@ -27,7 +28,7 @@ router.post('/register', validateRegistration, async (req, res, next) => {
   }
 });
 
-router.post('/login', validateLogin, async (req, res, next) => {
+router.post('/login', loginLimiter, validateLogin, async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
