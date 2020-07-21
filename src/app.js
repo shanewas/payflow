@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const errorHandler = require('./middleware/errorHandler');
+const logger = require('./middleware/logger');
 
 const authRoutes = require('./routes/auth');
 const paymentRoutes = require('./routes/payments');
@@ -12,6 +13,7 @@ const checkoutRoutes = require('./routes/checkout');
 
 const app = express();
 
+app.use(logger());
 app.use(cors());
 app.use(helmet());
 app.use(bodyParser.json());
