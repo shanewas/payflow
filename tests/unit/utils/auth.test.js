@@ -1,62 +1,74 @@
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { hashPassword, comparePassword } = require('../../../src/utils/password');
-const { generateToken, verifyToken } = require('../../../src/utils/jwt');
+const { generateToken, verifyToken, generateRefreshToken } = require('../../../src/utils/jwt');
+
+// Mock environment variables
+process.env.JWT_ACCESS_TOKEN_SECRET = 'test-access-secret';
+process.env.JWT_ACCESS_TOKEN_EXPIRATION = '1s';
+process.env.JWT_REFRESH_TOKEN_SECRET = 'test-refresh-secret';
+process.env.JWT_REFRESH_TOKEN_EXPIRATION = '2s';
 
 describe('Auth Utilities', () => {
   describe('Password Hashing', () => {
-    it('should hash a password', async () => {
+    it('should hash a plain text password', async () => {
       const password = 'mysecretpassword';
       const hashedPassword = await hashPassword(password);
-      expect(hashedPassword).toBeDefined();
-      expect(hashedPassword).not.toEqual(password);
+      expect(hashedPassword).not.toBe(password);
+      expect(await bcrypt.compare(password, hashedPassword)).toBe(true);
     });
 
-    it('should compare a correct password and return true', async () => {
+    it('should correctly compare a password with its hash', async () => {
       const password = 'mysecretpassword';
-      const hashedPassword = await hashPassword(password);
+      const hashedPassword = await bcrypt.hash(password, 10);
       const isMatch = await comparePassword(password, hashedPassword);
       expect(isMatch).toBe(true);
     });
 
-    it('should compare an incorrect password and return false', async () => {
+    it('should return false for incorrect password comparison', async () => {
       const password = 'mysecretpassword';
-      const incorrectPassword = 'wrongpassword';
-      const hashedPassword = await hashPassword(password);
-      const isMatch = await comparePassword(incorrectPassword, hashedPassword);
+      const wrongPassword = 'wrongpassword';
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const isMatch = await comparePassword(wrongPassword, hashedPassword);
       expect(isMatch).toBe(false);
     });
   });
 
   describe('JWT Utilities', () => {
-    const payload = { userId: 1, email: 'test@example.com' };
-    // Mock environment variables for JWT
-    process.env.JWT_ACCESS_TOKEN_SECRET = 'a-very-secret-key';
-    process.env.JWT_ACCESS_TOKEN_EXPIRATION = '15m';
+    const payload = { userId: '12345' };
 
-
-    it('should generate a valid JWT', () => {
+    it('should generate a valid access token', () => {
       const token = generateToken(payload);
-      expect(token).toBeDefined();
-      expect(typeof token).toBe('string');
+      const decoded = jwt.verify(token, process.env.JWT_ACCESS_TOKEN_SECRET);
+      expect(decoded.userId).toBe(payload.userId);
     });
 
-    it('should verify a valid token and return the payload', () => {
-      const token = generateToken(payload);
+    it('should generate a valid refresh token', () => {
+        const token = generateRefreshToken(payload);
+        const decoded = jwt.verify(token, process.env.JWT_REFRESH_TOKEN_SECRET);
+        expect(decoded.userId).toBe(payload.userId);
+      });
+
+    it('should verify a valid token', () => {
+      const token = jwt.sign(payload, process.env.JWT_ACCESS_TOKEN_SECRET, { expiresIn: '1m' });
       const decoded = verifyToken(token);
-      expect(decoded).toMatchObject(payload);
+      expect(decoded.userId).toBe(payload.userId);
     });
 
-    it('should return null for an invalid token', () => {
-      const invalidToken = 'invalid.token.string';
-      const decoded = verifyToken(invalidToken);
+    it('should return null for an invalid token signature', () => {
+      const token = jwt.sign(payload, 'wrong-secret', { expiresIn: '1m' });
+      const decoded = verifyToken(token);
       expect(decoded).toBeNull();
     });
 
-    it('should return null for an expired token', () => {
-        // Create an expired token
-        const expiredToken = generateToken(payload, { expiresIn: '-1s' });
-        const decoded = verifyToken(expiredToken);
-        // The current implementation of verifyToken catches the error and returns null
+    it('should return null for an expired token', (done) => {
+      const token = generateToken(payload);
+      // Set a timeout to allow the token to expire
+      setTimeout(() => {
+        const decoded = verifyToken(token);
         expect(decoded).toBeNull();
-    });
+        done();
+      }, 1500); // Wait 1.5 seconds, which is longer than the 1s expiration
+    }, 2000); // Jest timeout
   });
 });
