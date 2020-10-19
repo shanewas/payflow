@@ -1,24 +1,29 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const { success, message } = await login(email, password);
-    if (!success) {
-      setError(message);
+    try {
+      await login(email, password);
+      navigate('/checkout');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to log in');
     }
   };
 
   return (
     <div>
       <h2>Login</h2>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
       <form onSubmit={handleSubmit}>
         <div>
           <label>Email</label>
@@ -38,9 +43,11 @@ const Login = () => {
             required
           />
         </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
         <button type="submit">Login</button>
       </form>
+      <p>
+        Don't have an account? <Link to="/register">Register</Link>
+      </p>
     </div>
   );
 };
