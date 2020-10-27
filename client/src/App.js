@@ -31,8 +31,8 @@ function App() {
         <main>
           <Routes>
             <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/checkout" />} />
-            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/checkout" />} />
-            <Route path="/checkout" element={isAuthenticated ? <CheckoutPage /> : <Navigate to="/login" />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/" element={<Navigate to={isAuthenticated ? "/checkout" : "/login"} />} />
           </Routes>
         </main>
