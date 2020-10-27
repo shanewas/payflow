@@ -3,6 +3,7 @@ import './App.css';
 import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import CheckoutPage from './pages/CheckoutPage';
 
 function App() {
   const { isAuthenticated, logout } = useAuth();
@@ -21,10 +22,7 @@ function App() {
       </header>
       <main>
         {isAuthenticated ? (
-          <div>
-            <h2>Welcome!</h2>
-            {/* Checkout page will go here */}
-          </div>
+          <CheckoutPage />
         ) : (
           <div style={{ display: 'flex', justifyContent: 'space-around' }}>
             <Login />
