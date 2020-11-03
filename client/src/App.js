@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import CheckoutPage from './pages/CheckoutPage';
+import PaymentHistory from './pages/PaymentHistory';
 import './App.css';
 
 function App() {
@@ -32,7 +33,9 @@ function App() {
           <Routes>
             <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/checkout" />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
+            <PrivateRoute path="/checkout" element={<CheckoutPage />} />
+            <PrivateRoute path="/history" element={<PaymentHistory />} />
+            {/* Redirect to login or a dashboard if logged in */}
             <Route path="/" element={<Navigate to={isAuthenticated ? "/checkout" : "/login"} />} />
           </Routes>
         </main>
