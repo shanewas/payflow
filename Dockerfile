@@ -13,11 +13,12 @@ RUN npm install
 # Bundle app source
 COPY . .
 
-# Make port 8000 available to the world outside this container
-EXPOSE 8000
+# Make port available to the world outside this container
+EXPOSE ${PORT:-3000}
 
 # Define environment variable
 ENV NODE_ENV production
+ENV PORT 3000
 
 # Run the app when the container launches
 CMD ["node", "src/server.js"]

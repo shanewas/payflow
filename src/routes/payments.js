@@ -4,6 +4,7 @@ const authMiddleware = require('../middleware/auth');
 const { validatePaymentCreation } = require('../middleware/validate');
 const Payment = require('../models/Payment');
 const { generalLimiter, paymentIntentLimiter } = require('../middleware/rateLimiter');
+const db = require('../config/database');
 
 const router = express.Router();
 
@@ -103,6 +104,22 @@ router.post(
     authMiddleware,
     validatePaymentCreation,
     async (req, res, next) => {
+        const idempotencyKey = req.get('Idempotency-Key');
+
+        if (idempotencyKey) {
+            try {
+                const { rows } = await db.query('SELECT response FROM idempotency_keys WHERE key = $1', [idempotencyKey]);
+                if (rows.length > 0) {
+                    console.log(`Idempotency key match found for ${idempotencyKey}. Returning cached response.`);
+                    return res.status(200).json(rows[0].response);
+                }
+            } catch (dbError) {
+                console.error('Error checking idempotency key:', dbError);
+                // If the DB check fails, we can either fail the request or proceed.
+                // For this implementation, we'll proceed but log the error.
+            }
+        }
+
         try {
             const { amount, currency } = req.body;
             const userId = req.user.id;
@@ -114,18 +131,21 @@ router.post(
                 metadata: { userId },
             });
 
-            // Save the payment intent to our database
-            await Payment.create({
-                user_id: userId,
-                stripe_payment_intent_id: paymentIntent.id,
-                amount,
-                currency,
-                status: 'pending',
-            });
-
-            res.status(201).send({
+            const responsePayload = {
                 clientSecret: paymentIntent.client_secret,
-            });
+            };
+
+            if (idempotencyKey) {
+                try {
+                    await db.query('INSERT INTO idempotency_keys (key, response) VALUES ($1, $2)', [idempotencyKey, responsePayload]);
+                } catch (dbError) {
+                    console.error('Error saving idempotency key:', dbError);
+                    // If this fails, we don't fail the whole request, but we log the issue.
+                    // A background process could retry saving these.
+                }
+            }
+
+            res.status(201).send(responsePayload);
         } catch (error) {
             next(error);
         }
