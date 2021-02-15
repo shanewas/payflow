@@ -11,6 +11,7 @@ const paymentRoutes = require('./routes/payments');
 const webhookRoutes = require('./routes/webhooks');
 const orderRoutes = require('./routes/orders');
 const checkoutRoutes = require('./routes/checkout');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/payments', paymentRoutes);
 app.use('/orders', orderRoutes);
 app.use('/checkout', checkoutRoutes);
 app.use('/webhooks', webhookRoutes);
+app.use('/admin', adminRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).send('OK');

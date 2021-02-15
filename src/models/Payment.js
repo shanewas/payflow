@@ -80,6 +80,49 @@ const Payment = {
       [id]
     );
     return rows[0];
+  },
+
+  async findAllWithFilters({ status, page = 1, limit = 10, userId, email }) {
+    const offset = (page - 1) * limit;
+    let query = 'SELECT p.*, u.email FROM payments p JOIN users u ON p.user_id = u.id';
+    let countQuery = 'SELECT COUNT(p.*) FROM payments p JOIN users u ON p.user_id = u.id';
+    const whereClauses = [];
+    const queryParams = [];
+
+    if (status) {
+        queryParams.push(status);
+        whereClauses.push(`p.status = $${queryParams.length}`);
+    }
+    if (userId) {
+        queryParams.push(userId);
+        whereClauses.push(`p.user_id = $${queryParams.length}`);
+    }
+    if (email) {
+        queryParams.push(`%${email}%`);
+        whereClauses.push(`u.email ILIKE $${queryParams.length}`);
+    }
+
+    if (whereClauses.length > 0) {
+        const whereString = whereClauses.join(' AND ');
+        query += ` WHERE ${whereString}`;
+        countQuery += ` WHERE ${whereString}`;
+    }
+
+    query += ` ORDER BY p.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    queryParams.push(limit, offset);
+
+    const { rows: payments } = await db.query(query, queryParams);
+    const { rows: countRows } = await db.query(countQuery, queryParams.slice(0, queryParams.length - 2));
+
+    const total = parseInt(countRows[0].count, 10);
+
+    return {
+        payments,
+        total,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+        totalPages: Math.ceil(total / limit),
+    };
   }
 };
 
