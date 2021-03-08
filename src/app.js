@@ -13,6 +13,9 @@ const orderRoutes = require('./routes/orders');
 const checkoutRoutes = require('./routes/checkout');
 const adminRoutes = require('./routes/admin');
 
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./docs/swagger');
+
 const app = express();
 
 // Security Middleware
@@ -49,6 +52,7 @@ app.use('/orders', orderRoutes);
 app.use('/checkout', checkoutRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/admin', adminRoutes);
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get('/health', (req, res) => {
   res.status(200).send('OK');

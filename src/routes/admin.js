@@ -5,9 +5,51 @@ const Payment = require('../models/Payment');
 const db = require('../config/database');
 const { stripe } = require('../config/stripe');
 
+/**
+ * @swagger
+ * tags:
+ *   name: Admin
+ *   description: Admin-only operations
+ */
+
 // @route   GET /admin/payments
 // @desc    Get all payments with filters
 // @access  Admin
+/**
+ * @swagger
+ * /admin/payments:
+ *   get:
+ *     summary: Get all payments with filters
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: email
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of payments
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/payments', adminAuth, async (req, res, next) => {
     try {
         const { status, page = 1, limit = 10, userId, email } = req.query;
@@ -22,6 +64,20 @@ router.get('/payments', adminAuth, async (req, res, next) => {
 // @route   GET /admin/stats
 // @desc    Get revenue and counts
 // @access  Admin
+/**
+ * @swagger
+ * /admin/stats:
+ *   get:
+ *     summary: Get revenue and counts
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Statistics
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/stats', adminAuth, async (req, res, next) => {
     try {
         const totalVolume = await db.query("SELECT SUM(amount) FROM payments WHERE status = 'succeeded'");
@@ -41,6 +97,29 @@ router.get('/stats', adminAuth, async (req, res, next) => {
 // @route   POST /admin/refund/:id
 // @desc    Refund a specific payment
 // @access  Admin
+/**
+ * @swagger
+ * /admin/refund/{id}:
+ *   post:
+ *     summary: Refund a specific payment
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Payment ID
+ *     responses:
+ *       200:
+ *         description: Refund successful
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: Payment not found
+ */
 router.post('/refund/:id', adminAuth, async (req, res, next) => {
     try {
         const paymentId = parseInt(req.params.id, 10);

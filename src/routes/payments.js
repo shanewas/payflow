@@ -8,9 +8,43 @@ const db = require('../config/database');
 
 const router = express.Router();
 
-// @route   GET /payments
-// @desc    Get user's payment history with pagination and filtering
-// @access  Private
+/**
+ * @swagger
+ * tags:
+ *   name: Payments
+ *   description: Payment management
+ */
+
+/**
+ * @swagger
+ * /payments:
+ *   get:
+ *     summary: Get user's payment history
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filter by payment status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: A list of payments
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/', generalLimiter, authMiddleware, async (req, res, next) => {
     try {
         const { status, page = 1, limit = 10 } = req.query;
@@ -24,9 +58,29 @@ router.get('/', generalLimiter, authMiddleware, async (req, res, next) => {
     }
 });
 
-// @route   GET /payments/:id
-// @desc    Get payment details
-// @access  Private
+/**
+ * @swagger
+ * /payments/{id}:
+ *   get:
+ *     summary: Get payment details
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Payment ID
+ *     responses:
+ *       200:
+ *         description: Payment details
+ *       404:
+ *         description: Payment not found
+ *       403:
+ *         description: Forbidden
+ */
 router.get('/:id', generalLimiter, authMiddleware, async (req, res, next) => {
     try {
         const paymentId = parseInt(req.params.id, 10);
@@ -51,9 +105,29 @@ router.get('/:id', generalLimiter, authMiddleware, async (req, res, next) => {
     }
 });
 
-// @route   POST /payments/:id/refund
-// @desc    Refund a payment
-// @access  Private
+/**
+ * @swagger
+ * /payments/{id}/refund:
+ *   post:
+ *     summary: Refund a payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Payment ID
+ *     responses:
+ *       200:
+ *         description: Refund successful
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: Payment not found
+ */
 router.post('/:id/refund', generalLimiter, authMiddleware, async (req, res, next) => {
     try {
         const paymentId = parseInt(req.params.id, 10);
@@ -98,6 +172,41 @@ router.post('/:id/refund', generalLimiter, authMiddleware, async (req, res, next
     }
 });
 
+/**
+ * @swagger
+ * /payments/intent:
+ *   post:
+ *     summary: Create a payment intent
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *               - currency
+ *             properties:
+ *               amount:
+ *                 type: number
+ *               currency:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Payment intent created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 clientSecret:
+ *                   type: string
+ *       400:
+ *         description: Invalid input
+ */
 router.post(
     '/intent',
     paymentIntentLimiter,
