@@ -4,9 +4,9 @@ services:
   api:
     build: .
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
-      - PORT=3000
+      - PORT=3001
       - DATABASE_URL=postgres://user:password@db:5432/payflow
       - JWT_SECRET=your_jwt_secret
       - STRIPE_SECRET_KEY=your_stripe_secret_key
@@ -15,7 +15,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
       timeout: 10s
       retries: 5
