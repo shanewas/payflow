@@ -14,7 +14,15 @@ pool.on('error', (err) => {
 });
 
 module.exports = {
-  query: (text, params) => pool.query(text, params),
+  query: (text, params) => {
+    const start = Date.now();
+    const res = pool.query(text, params);
+    const duration = Date.now() - start;
+    if (process.env.NODE_ENV === 'development' && duration > 100) { // Log slow queries
+      console.log('Executed query', { text, duration, rows: res.rowCount });
+    }
+    return res;
+  },
   close: () => {
     console.log('Closing database connection pool');
     return pool.end();
