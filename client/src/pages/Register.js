@@ -16,7 +16,7 @@ const Register = () => {
     try {
       await register(name, email, password);
       navigate('/checkout');
-    } catch (err) => {
+    } catch (err) {
       setError(err.response?.data?.message || 'Failed to register');
     }
   };
