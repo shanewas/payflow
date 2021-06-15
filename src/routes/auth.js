@@ -4,6 +4,7 @@ const User = require('../models/User');
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateToken, generateRefreshToken } = require('../utils/jwt');
 const { generalLimiter, loginLimiter } = require('../middleware/rateLimiter');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
