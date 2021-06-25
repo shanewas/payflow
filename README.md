@@ -70,7 +70,7 @@ cd payflow
 - Copy the example environment file: `cp .env.example .env`
 - Fill in the required environment variables in `.env`.
 - Run `docker-compose up --build -d`.
-- The API will be available at `http://localhost:8080` and the client at `http://localhost:3000`.
+- The API will be available at `http://localhost:3000` and the client at `http://localhost:3001` (if 3000 is taken by the API).
 
 ---
 
