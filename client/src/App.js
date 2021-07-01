@@ -7,6 +7,12 @@ import CheckoutPage from './pages/CheckoutPage';
 import PaymentHistory from './pages/PaymentHistory';
 import './App.css';
 
+// PrivateRoute component to protect authenticated routes
+function PrivateRoute({ element, path }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? element : <Navigate to="/login" replace />;
+}
+
 function App() {
   const { isAuthenticated, logout } = useAuth();
 
@@ -24,6 +30,7 @@ function App() {
             ) : (
               <>
                 <Link to="/checkout">Checkout</Link>
+                <Link to="/history">Payment History</Link>
                 <button onClick={logout}>Logout</button>
               </>
             )}
@@ -33,8 +40,8 @@ function App() {
           <Routes>
             <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/checkout" />} />
             <Route path="/register" element={<Register />} />
-            <PrivateRoute path="/checkout" element={<CheckoutPage />} />
-            <PrivateRoute path="/history" element={<PaymentHistory />} />
+            <Route path="/checkout" element={<PrivateRoute element={<CheckoutPage />} />} />
+            <Route path="/history" element={<PrivateRoute element={<PaymentHistory />} />} />
             {/* Redirect to login or a dashboard if logged in */}
             <Route path="/" element={<Navigate to={isAuthenticated ? "/checkout" : "/login"} />} />
           </Routes>
