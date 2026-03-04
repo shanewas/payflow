@@ -1,136 +1,230 @@
-# Payflow API & Frontend
+# 💳 PayFlow
 
-Payflow is a full-stack payment processing application built with Node.js, Express, and PostgreSQL on the backend, and React on the frontend. It uses Stripe for payment processing and provides a complete solution for handling user authentication, orders, payments, refunds, and more.
+> A full-stack payment integration system built with Node.js, Stripe, PostgreSQL, and React.
+
+![Node.js](https://img.shields.io/badge/Node.js-18.x-339933?style=flat&logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4.x-000000?style=flat&logo=express&logoColor=white)
+![React](https://img.shields.io/badge/React-17.x-61DAFB?style=flat&logo=react&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-12-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Stripe](https://img.shields.io/badge/Stripe-API-635BFF?style=flat&logo=stripe&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [API Reference](#api-reference)
+- [Testing](#testing)
+- [Stripe Test Cards](#stripe-test-cards)
+- [Deployment](#deployment)
+
+---
+
+## Overview
+
+PayFlow is a production-ready payment processing backend and frontend that demonstrates a real-world Stripe integration. It handles the full payment lifecycle — from user registration and order creation, through payment intent generation and webhook processing, to refunds and admin reporting.
 
 ---
 
 ## Architecture
 
-The application is containerized using Docker and is composed of the following services:
-
-```ascii
-+-----------------+      +-----------------+      +----------------+
-|   React Client  |----->|   Node.js API   |----->|   PostgreSQL   |
-| (localhost:3000)|      | (localhost:8080)|      |      (db)      |
-+-----------------+      +-----------------+      +----------------+
-        |                      |                      ^
-        |                      |                      |
-        |                      v                      |
-        |               +----------------+            |
-        +-------------->|     Stripe     |------------+
-                        |      (API)     |      (Webhooks)
-                        +----------------+
 ```
++-----------------+      +-----------------+      +----------------+
+|   React Client  | ---> |   Node.js API   | ---> |   PostgreSQL   |
+| (localhost:3001)|      | (localhost:8080)|      |      (db)      |
++-----------------+      +-----------------+      +----------------+
+                                 |
+                                 v
+                        +-----------------+
+                        |   Stripe API    |
+                        |  + Webhooks     |
+                        +-----------------+
+```
+
+| Service   | Port   | Description                    |
+|-----------|--------|--------------------------------|
+| API       | `8080` | Node.js / Express REST API     |
+| Client    | `3001` | React frontend                 |
+| Database  | `5432` | PostgreSQL 12                  |
+| PgAdmin   | `5050` | Database UI (dev only)         |
 
 ---
 
 ## Features
 
-- **User Authentication**: Secure user registration and login using JWT (JSON Web Tokens).
-- **Payment Processing**: Integration with Stripe for handling payments, including PaymentIntents for SCA compliance.
-- **Order Management**: Create and manage orders linked to payments.
-- **Database Migrations**: A simple, script-based migration system to manage database schema changes.
-- **RESTful API**: A well-structured API with clear endpoints for all major functionalities.
-- **Frontend UI**: A React-based single-page application for user interaction.
-- **Dockerized Environment**: The entire application stack can be run easily using Docker Compose.
-- **CI/CD Pipeline**: Automated testing and builds using GitHub Actions.
-- **API Documentation**: Interactive API documentation available via Swagger/OpenAPI.
+- 🔐 **JWT Authentication** — Register, login, access + refresh tokens
+- 💳 **Stripe Payments** — PaymentIntents with SCA compliance
+- 🔔 **Webhooks** — Real-time payment status updates from Stripe
+- ↩️ **Refunds** — Full and partial refund support
+- 📦 **Order Management** — Orders linked to payments
+- 🛡️ **Security** — Helmet, CORS, rate limiting, input validation, idempotency keys
+- 👑 **Admin API** — Revenue stats, full payment history, admin refunds
+- 📄 **Swagger Docs** — Interactive API docs at `/docs`
+- 🐳 **Docker** — Full stack with one command
+- ✅ **Tests** — Unit and integration test suite with Jest
 
 ---
 
-## Setup & Installation
+## Quick Start
 
-### Prerequisites
-- Node.js (v14+)
-- PostgreSQL (v12+)
-- Docker & Docker Compose
-- A Stripe account and API keys
+### Option A — Docker (Recommended)
 
-### 1. Clone the repository
 ```bash
-git clone <repository-url>
+# 1. Clone the repo
+git clone https://github.com/shanewas/payflow.git
 cd payflow
+
+# 2. Set up environment
+cp .env.example .env
+# Edit .env and fill in your Stripe keys and JWT secrets
+
+# 3. Start everything
+docker-compose up --build -d
+
+# 4. Run migrations
+docker-compose exec api node scripts/migrate.js
 ```
 
-### 2. Backend Setup
-- Copy the example environment file: `cp .env.example .env`
-- Fill in the required environment variables in `.env` (see table below).
-- Install dependencies: `npm install`
-- Run database migrations: `npm run migrate`
-- Start the server: `npm start`
+API available at `http://localhost:8080`  
+Client available at `http://localhost:3001`  
+PgAdmin available at `http://localhost:5050`
 
-### 3. Frontend Setup
-- Navigate to the client directory: `cd client`
-- Install dependencies: `npm install`
-- Create a `.env` file in the `client` directory with `REACT_APP_STRIPE_PUBLISHABLE_KEY=your_stripe_pk`.
-- Start the frontend dev server: `npm start`
+---
 
-### 4. Docker Setup (Alternative)
-- Ensure Docker is running.
-- Copy the example environment file: `cp .env.example .env`
-- Fill in the required environment variables in `.env`.
-- Run `docker-compose up --build -d`.
-- The API will be available at `http://localhost:3000` and the client at `http://localhost:3001` (if 3000 is taken by the API).
+### Option B — Local Setup
+
+**Backend:**
+```bash
+npm install
+cp .env.example .env
+# Edit .env with your values
+npm run migrate
+npm start
+```
+
+**Frontend:**
+```bash
+cd client
+npm install
+# Create client/.env with REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_...
+npm start
+```
 
 ---
 
 ## Environment Variables
 
-| Variable                          | Description                                         | Example                                                 |
-|-----------------------------------|-----------------------------------------------------|---------------------------------------------------------|
-| `PORT`                            | The port for the Node.js server to run on.          | `8080`                                                  |
-| `DATABASE_URL`                    | The connection string for the PostgreSQL database.  | `postgres://user:password@localhost:5432/payflow`       |
-| `STRIPE_SECRET_KEY`               | Your Stripe secret key (sk_test_...).               | `sk_test_...`                                           |
-| `STRIPE_WEBHOOK_SECRET`           | Your Stripe webhook signing secret (whsec_...).     | `whsec_...`                                             |
-| `JWT_ACCESS_TOKEN_SECRET`         | Secret key for signing JWT access tokens.           | `your-super-secret-key`                                 |
-| `JWT_ACCESS_TOKEN_EXPIRATION`     | Expiration time for access tokens.                  | `15m`                                                   |
-| `JWT_REFRESH_TOKEN_SECRET`        | Secret key for signing JWT refresh tokens.          | `another-super-secret-key`                              |
-| `JWT_REFRESH_TOKEN_EXPIRATION`    | Expiration time for refresh tokens.                 | `7d`                                                    |
-| `NODE_ENV`                        | The application environment.                        | `development` or `production`                           |
-| `CORS_ORIGIN`                     | The origin to allow for CORS requests.              | `http://localhost:3000`                                 |
-| `REACT_APP_STRIPE_PUBLISHABLE_KEY`| Your Stripe publishable key for the React app.      | `pk_test_...`                                           |
+Copy `.env.example` to `.env` and fill in the values:
+
+| Variable | Description | Example |
+|---|---|---|
+| `PORT` | API server port | `8080` |
+| `NODE_ENV` | Environment | `development` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://user:pass@localhost:5432/payflow` |
+| `STRIPE_SECRET_KEY` | Stripe secret key | `sk_test_...` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | `whsec_...` |
+| `JWT_ACCESS_TOKEN_SECRET` | JWT access token secret | `random-secret` |
+| `JWT_ACCESS_TOKEN_EXPIRATION` | Access token expiry | `15m` |
+| `JWT_REFRESH_TOKEN_SECRET` | JWT refresh token secret | `random-secret-2` |
+| `JWT_REFRESH_TOKEN_EXPIRATION` | Refresh token expiry | `7d` |
+| `CORS_ORIGIN` | Allowed CORS origin | `http://localhost:3001` |
+| `REACT_APP_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (frontend) | `pk_test_...` |
+
+> Get your Stripe keys at [dashboard.stripe.com/apikeys](https://dashboard.stripe.com/apikeys)
 
 ---
 
-## API Endpoints
+## API Reference
 
-The full interactive API documentation is available at `GET /docs` when the server is running.
+Full interactive docs available at **`GET /docs`** when the server is running.
 
-| Method | Endpoint                    | Description                                | Auth Required |
-|--------|-----------------------------|--------------------------------------------|---------------|
-| `POST` | `/auth/register`            | Register a new user.                       | No            |
-| `POST` | `/auth/login`               | Log in a user.                             | No            |
-| `POST` | `/payments/intent`          | Create a new payment intent.               | Yes           |
-| `GET`  | `/payments`                 | Get the payment history for the user.      | Yes           |
-| `GET`  | `/payments/:id`             | Get details for a specific payment.        | Yes           |
-| `POST` | `/payments/:id/refund`      | Refund a payment.                          | Yes           |
-| `POST` | `/orders`                   | Create a new order.                        | Yes           |
-| `POST` | `/checkout`                 | Initiate the checkout flow for an order.   | Yes           |
-| `POST` | `/webhooks/stripe`          | Handle incoming webhooks from Stripe.      | No (Signature)|
-| `GET`  | `/admin/payments`           | Get all payments (admin only).             | Yes (Admin)   |
-| `GET`  | `/admin/stats`              | Get application statistics (admin only).   | Yes (Admin)   |
-| `POST` | `/admin/refund/:id`         | Refund any payment (admin only).           | Yes (Admin)   |
+### Auth
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| `POST` | `/auth/register` | Register a new user | — |
+| `POST` | `/auth/login` | Login and get tokens | — |
+
+### Payments
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| `POST` | `/payments/intent` | Create a payment intent | ✅ |
+| `GET` | `/payments` | Get payment history | ✅ |
+| `GET` | `/payments/:id` | Get payment details | ✅ |
+| `POST` | `/payments/:id/refund` | Refund a payment | ✅ |
+
+### Orders & Checkout
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| `POST` | `/orders` | Create an order | ✅ |
+| `POST` | `/checkout` | Start checkout for an order | ✅ |
+
+### Webhooks
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| `POST` | `/webhooks/stripe` | Stripe webhook receiver | Signature |
+
+### Admin
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| `GET` | `/admin/payments` | All payments with filters | ✅ Admin |
+| `GET` | `/admin/stats` | Revenue and status stats | ✅ Admin |
+| `POST` | `/admin/refund/:id` | Refund any payment | ✅ Admin |
 
 ---
 
-## Running Tests
+## Testing
 
-- To run all tests (unit and integration), use: `npm test`
-- You may need to configure a separate test database and set the `DATABASE_URL` accordingly.
+```bash
+# Run all tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Run only unit tests
+npm run test:unit
+
+# Run only integration tests
+npm run test:integration
+```
+
+> Integration tests require a running PostgreSQL instance. Set `DATABASE_URL` to a test database before running.
 
 ---
 
-## Stripe Test Card Numbers
+## Stripe Test Cards
 
-| Card Number        | CVC | Expiry |
-|--------------------|-----|--------|
-| `4242 4242 4242 4242` | 123 | 12/24  |
+Use these in the payment form with any future expiry and any 3-digit CVC:
+
+| Scenario | Card Number |
+|---|---|
+| ✅ Payment succeeds | `4242 4242 4242 4242` |
+| ❌ Payment declined | `4000 0000 0000 0002` |
+| 🔐 Requires 3D Secure | `4000 0025 0000 3155` |
+| ⚠️ Insufficient funds | `4000 0000 0000 9995` |
 
 ---
 
-## Deployment Notes
+## Deployment
 
-- For production, ensure `NODE_ENV` is set to `production`.
-- Use a robust process manager like PM2 to manage the Node.js application.
-- Ensure your database is properly secured and backed up.
-- Configure your Stripe webhooks in the Stripe dashboard to point to your production server's `/webhooks/stripe` endpoint.
+1. Set `NODE_ENV=production` in your environment
+2. Use a process manager like [PM2](https://pm2.keymetrics.io/) for the Node.js app
+3. Configure your Stripe webhook in the [Stripe Dashboard](https://dashboard.stripe.com/webhooks) to point to `https://yourdomain.com/webhooks/stripe`
+4. Ensure your PostgreSQL database is secured, backed up, and accessible only from the API server
+5. Set all secrets to strong random values — never commit `.env` to git
+
+---
+
+## License
+
+MIT
