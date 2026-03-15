@@ -1,0 +1,50 @@
+.payment-form-container {
+  max-width: 500px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-element-wrapper {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.75rem;
+  background-color: #fff;
+  margin-bottom: 1.25rem;
+}
+
+.pay-button {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.pay-button:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.pay-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.payment-error {
+  color: #dc3545;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.payment-success {
+  color: #28a745;
+  margin-top: 1rem;
+  text-align: center;
+  font-weight: bold;
+}

@@ -1,5 +1,5 @@
 const express = require('express');
-const stripe = require('../config/stripe');
+const { stripe } = require('../config/stripe');
 const webhookService = require('../services/webhookService');
 
 const router = express.Router();
