@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => {
     const storedToken = localStorage.getItem('token');
     // Basic check for token validity, you could add JWT decoding here for more robustness
-    if (storedToken && storedToken.length < 500) { // Simple sanity check for length
+    if (storedToken && storedToken.length < 2048) { // Simple sanity check for length
       return storedToken;
     }
     localStorage.removeItem('token');

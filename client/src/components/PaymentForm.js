@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import axios from 'axios';
+import api from '../services/api';
+import './PaymentForm.css';
 
 const PaymentForm = ({ orderId }) => {
   const stripe = useStripe();
@@ -17,7 +18,7 @@ const PaymentForm = ({ orderId }) => {
     setProcessing(true);
 
     try {
-      const { data: { clientSecret, paymentId } } = await axios.post('/checkout', { orderId });
+      const { data: { clientSecret, paymentId } } = await api.post('/checkout', { orderId });
       
       const cardElement = elements.getElement(CardElement);
 
@@ -44,14 +45,18 @@ const PaymentForm = ({ orderId }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <CardElement />
-      <button disabled={processing || succeeded}>
-        {processing ? 'Processing...' : 'Pay'}
-      </button>
-      {error && <div>{error}</div>}
-      {succeeded && <div>Payment Succeeded!</div>}
-    </form>
+    <div className="payment-form-container">
+      <form onSubmit={handleSubmit}>
+        <div className="card-element-wrapper">
+          <CardElement />
+        </div>
+        <button className="pay-button" disabled={processing || succeeded}>
+          {processing ? 'Processing...' : 'Pay'}
+        </button>
+        {error && <div className="payment-error">{error}</div>}
+        {succeeded && <div className="payment-success">Payment Succeeded!</div>}
+      </form>
+    </div>
   );
 };
 

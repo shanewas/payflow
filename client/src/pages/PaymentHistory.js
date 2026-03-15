@@ -15,6 +15,7 @@ const PaymentHistory = () => {
     const fetchPayments = async () => {
       try {
         setLoading(true);
+        setError(null);
         const response = await api.get(`/payments?page=${page}&limit=10`);
         if (response.data.length === 0) {
           setHasMore(false);
@@ -54,7 +55,7 @@ const PaymentHistory = () => {
         {payments.map((payment) => (
           <li key={payment.id} className="payment-item">
             <div className="payment-details">
-              <p><strong>Amount:</strong> ${(payment.amount / 100).toFixed(2)} {payment.currency.toUpperCase()}</p>
+              <p><strong>Amount:</strong> ${(payment.amount / 100).toFixed(2)} {payment.currency?.toUpperCase()}</p>
               <p><strong>Date:</strong> {new Date(payment.created_at).toLocaleDateString()}</p>
             </div>
             <div className="payment-status">

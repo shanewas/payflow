@@ -6,10 +6,7 @@ const db = require('./config/database');
 
 const port = process.env.PORT || 3001;
 
-// Set very large header size to handle large JWTs and cookies
-const server = http.createServer({ 
-  maxHttpHeaderSize: 10 * 1024 * 1024 // 10MB - extremely large for debugging
-}, app).listen(port, () => {
+const server = http.createServer(app).listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
 
