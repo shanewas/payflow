@@ -17,9 +17,9 @@ const PAYMENT_STATUS_PRIORITY = {
 const ORDER_STATUS_PRIORITY = {
   'pending': 1,
   'processing': 5,
+  'cancelled': 8,
   'shipped': 10,
   'delivered': 15,
-  'cancelled': 20,
 };
 
 const canUpdatePaymentStatus = (currentStatus, newStatus) => {
@@ -52,18 +52,22 @@ const processPaymentIntentEvent = async (event, newStatus) => {
   const paymentIntent = event.data.object;
   const stripePaymentIntentId = paymentIntent.id;
 
-  const existingEvent = await WebhookEvent.findByEventId(eventId);
-  if (existingEvent && existingEvent.status === 'processed') {
-    console.log(`Event ${eventId} has already been processed. Skipping.`);
-    return { skipped: true, reason: 'already_processed' };
-  }
+  const createdEvent = await WebhookEvent.create({
+    event_id: eventId,
+    event_type: event.type,
+    payment_intent_id: stripePaymentIntentId,
+  });
 
-  if (!existingEvent) {
-    await WebhookEvent.create({
-      event_id: eventId,
-      event_type: event.type,
-      payment_intent_id: stripePaymentIntentId,
-    });
+  if (!createdEvent) {
+    const existingEvent = await WebhookEvent.findByEventId(eventId);
+    if (existingEvent) {
+      if (existingEvent.status === 'processed') {
+        console.log(`Event ${eventId} has already been processed. Skipping.`);
+        return { skipped: true, reason: 'already_processed' };
+      }
+      console.log(`Event ${eventId} is being processed by another request. Skipping.`);
+      return { skipped: true, reason: 'concurrent_processing' };
+    }
   }
 
   const existingPayment = await Payment.findByStripeId(stripePaymentIntentId);
