@@ -2,10 +2,14 @@ const request = require('supertest');
 const app = require('../../../src/app');
 const stripe = require('../../../src/config/stripe');
 const Payment = require('../../../src/models/Payment');
+const Order = require('../../../src/models/Order');
+const WebhookEvent = require('../../../src/models/WebhookEvent');
 
 // Mock dependencies
 jest.mock('../../../src/config/stripe');
 jest.mock('../../../src/models/Payment');
+jest.mock('../../../src/models/Order');
+jest.mock('../../../src/models/WebhookEvent');
 
 describe('POST /webhooks/stripe', () => {
   const endpointSecret = 'whsec_test_secret';
@@ -15,8 +19,8 @@ describe('POST /webhooks/stripe', () => {
     jest.clearAllMocks();
   });
 
-  const createStripeEvent = (type, data) => ({
-    id: 'evt_123',
+  const createStripeEvent = (eventId, type, data) => ({
+    id: eventId,
     object: 'event',
     api_version: '2020-08-27',
     created: Date.now(),
@@ -33,8 +37,6 @@ describe('POST /webhooks/stripe', () => {
   });
 
   const createSignature = (payload) => {
-    // This is a simplified mock. In a real scenario, you'd use crypto.
-    // However, we mock constructEvent, so the signature content doesn't matter.
     return 't=123,v1=mock_signature';
   };
 
@@ -44,7 +46,7 @@ describe('POST /webhooks/stripe', () => {
     });
 
     const eventPayload = { id: 'pi_123', amount: 1000 };
-    const stripeEvent = createStripeEvent('payment_intent.succeeded', eventPayload);
+    const stripeEvent = createStripeEvent('evt_123', 'payment_intent.succeeded', eventPayload);
     const payload = JSON.stringify(stripeEvent);
 
     const response = await request(app)
@@ -55,42 +57,201 @@ describe('POST /webhooks/stripe', () => {
     expect(response.status).toBe(400);
   });
 
-  it('should handle payment_intent.succeeded event', async () => {
-    const eventPayload = { id: 'pi_succeeded', amount: 2000 };
-    const stripeEvent = createStripeEvent('payment_intent.succeeded', eventPayload);
-    stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
-    
-    await request(app)
+  describe('idempotency handling', () => {
+    it('should skip processing if event is already processed', async () => {
+      const eventPayload = { id: 'pi_succeeded', amount: 2000 };
+      const stripeEvent = createStripeEvent('evt_duplicate', 'payment_intent.succeeded', eventPayload);
+      stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
+
+      WebhookEvent.findByEventId.mockResolvedValue({
+        id: 'wh_123',
+        event_id: 'evt_duplicate',
+        status: 'processed',
+      });
+
+      await request(app)
         .post('/webhooks/stripe')
         .set('stripe-signature', createSignature(JSON.stringify(stripeEvent)))
         .send(JSON.stringify(stripeEvent));
 
-    expect(Payment.updateStatusByStripeId).toHaveBeenCalledWith('pi_succeeded', 'succeeded');
+      expect(WebhookEvent.findByEventId).toHaveBeenCalledWith('evt_duplicate');
+      expect(Payment.findByStripeId).not.toHaveBeenCalled();
+      expect(Payment.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should process new event and mark as processed', async () => {
+      const eventPayload = { id: 'pi_new', amount: 2000 };
+      const stripeEvent = createStripeEvent('evt_new', 'payment_intent.succeeded', eventPayload);
+      stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
+
+      WebhookEvent.findByEventId.mockResolvedValue(null);
+      WebhookEvent.create.mockResolvedValue({ event_id: 'evt_new' });
+      WebhookEvent.markAsProcessed.mockResolvedValue({ event_id: 'evt_new', status: 'processed' });
+
+      Payment.findByStripeId.mockResolvedValue({
+        id: 'pay_123',
+        stripe_payment_intent_id: 'pi_new',
+        status: 'requires_payment_method',
+      });
+      Payment.updateStatus.mockResolvedValue({
+        id: 'pay_123',
+        status: 'succeeded',
+      });
+      Payment.findDetailsById.mockResolvedValue({
+        id: 'pay_123',
+        order: { id: 'ord_123', status: 'pending' },
+      });
+      Order.updateStatus.mockResolvedValue({ id: 'ord_123', status: 'processing' });
+
+      await request(app)
+        .post('/webhooks/stripe')
+        .set('stripe-signature', createSignature(JSON.stringify(stripeEvent)))
+        .send(JSON.stringify(stripeEvent));
+
+      expect(WebhookEvent.create).toHaveBeenCalledWith({
+        event_id: 'evt_new',
+        event_type: 'payment_intent.succeeded',
+        payment_intent_id: 'pi_new',
+      });
+      expect(Payment.updateStatus).toHaveBeenCalledWith('pay_123', 'succeeded');
+      expect(WebhookEvent.markAsProcessed).toHaveBeenCalledWith('evt_new');
+    });
   });
 
-  it('should handle payment_intent.payment_failed event', async () => {
-    const eventPayload = { id: 'pi_failed', amount: 3000 };
-    const stripeEvent = createStripeEvent('payment_intent.payment_failed', eventPayload);
-    stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
+  describe('status transition protection', () => {
+    it('should not update payment if new status is not newer', async () => {
+      const eventPayload = { id: 'pi_failed', amount: 3000 };
+      const stripeEvent = createStripeEvent('evt_old_status', 'payment_intent.payment_failed', eventPayload);
+      stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
 
-    await request(app)
+      WebhookEvent.findByEventId.mockResolvedValue(null);
+      WebhookEvent.create.mockResolvedValue({ event_id: 'evt_old_status' });
+      WebhookEvent.markAsProcessed.mockResolvedValue({ event_id: 'evt_old_status', status: 'processed' });
+
+      Payment.findByStripeId.mockResolvedValue({
+        id: 'pay_123',
+        stripe_payment_intent_id: 'pi_failed',
+        status: 'succeeded',
+      });
+
+      await request(app)
         .post('/webhooks/stripe')
         .set('stripe-signature', createSignature(JSON.stringify(stripeEvent)))
         .send(JSON.stringify(stripeEvent));
-    
-    expect(Payment.updateStatusByStripeId).toHaveBeenCalledWith('pi_failed', 'failed');
+
+      expect(Payment.updateStatus).not.toHaveBeenCalled();
+      expect(Order.updateStatus).not.toHaveBeenCalled();
+      expect(WebhookEvent.markAsProcessed).toHaveBeenCalledWith('evt_old_status');
+    });
+
+    it('should not update order if new status is not newer', async () => {
+      const eventPayload = { id: 'pi_failed_2', amount: 4000 };
+      const stripeEvent = createStripeEvent('evt_order_status', 'payment_intent.payment_failed', eventPayload);
+      stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
+
+      WebhookEvent.findByEventId.mockResolvedValue(null);
+      WebhookEvent.create.mockResolvedValue({ event_id: 'evt_order_status' });
+      WebhookEvent.markAsProcessed.mockResolvedValue({ event_id: 'evt_order_status', status: 'processed' });
+
+      Payment.findByStripeId.mockResolvedValue({
+        id: 'pay_123',
+        stripe_payment_intent_id: 'pi_failed_2',
+        status: 'requires_payment_method',
+      });
+      Payment.updateStatus.mockResolvedValue({
+        id: 'pay_123',
+        status: 'failed',
+      });
+      Payment.findDetailsById.mockResolvedValue({
+        id: 'pay_123',
+        order: { id: 'ord_123', status: 'delivered' },
+      });
+
+      await request(app)
+        .post('/webhooks/stripe')
+        .set('stripe-signature', createSignature(JSON.stringify(stripeEvent)))
+        .send(JSON.stringify(stripeEvent));
+
+      expect(Payment.updateStatus).toHaveBeenCalledWith('pay_123', 'failed');
+      expect(Order.updateStatus).not.toHaveBeenCalled();
+    });
   });
 
-  it('should handle payment_intent.canceled event', async () => {
-    const eventPayload = { id: 'pi_canceled', amount: 4000 };
-    const stripeEvent = createStripeEvent('payment_intent.canceled', eventPayload);
-    stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
-    
-    await request(app)
+  describe('payment intent events', () => {
+    beforeEach(() => {
+      WebhookEvent.findByEventId.mockResolvedValue(null);
+      WebhookEvent.create.mockResolvedValue({});
+      WebhookEvent.markAsProcessed.mockResolvedValue({});
+      Payment.findDetailsById.mockResolvedValue({ order: null });
+    });
+
+    it('should handle payment_intent.succeeded event', async () => {
+      const eventPayload = { id: 'pi_succeeded_2', amount: 2000 };
+      const stripeEvent = createStripeEvent('evt_succeeded', 'payment_intent.succeeded', eventPayload);
+      stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
+
+      Payment.findByStripeId.mockResolvedValue({
+        id: 'pay_123',
+        stripe_payment_intent_id: 'pi_succeeded_2',
+        status: 'requires_payment_method',
+      });
+      Payment.updateStatus.mockResolvedValue({
+        id: 'pay_123',
+        status: 'succeeded',
+      });
+
+      await request(app)
         .post('/webhooks/stripe')
         .set('stripe-signature', createSignature(JSON.stringify(stripeEvent)))
         .send(JSON.stringify(stripeEvent));
 
-    expect(Payment.updateStatusByStripeId).toHaveBeenCalledWith('pi_canceled', 'canceled');
+      expect(Payment.updateStatus).toHaveBeenCalledWith('pay_123', 'succeeded');
+    });
+
+    it('should handle payment_intent.payment_failed event', async () => {
+      const eventPayload = { id: 'pi_failed_3', amount: 3000 };
+      const stripeEvent = createStripeEvent('evt_failed', 'payment_intent.payment_failed', eventPayload);
+      stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
+
+      Payment.findByStripeId.mockResolvedValue({
+        id: 'pay_123',
+        stripe_payment_intent_id: 'pi_failed_3',
+        status: 'requires_payment_method',
+      });
+      Payment.updateStatus.mockResolvedValue({
+        id: 'pay_123',
+        status: 'failed',
+      });
+
+      await request(app)
+        .post('/webhooks/stripe')
+        .set('stripe-signature', createSignature(JSON.stringify(stripeEvent)))
+        .send(JSON.stringify(stripeEvent));
+
+      expect(Payment.updateStatus).toHaveBeenCalledWith('pay_123', 'failed');
+    });
+
+    it('should handle payment_intent.canceled event', async () => {
+      const eventPayload = { id: 'pi_canceled_2', amount: 4000 };
+      const stripeEvent = createStripeEvent('evt_canceled', 'payment_intent.canceled', eventPayload);
+      stripe.webhooks.constructEvent.mockReturnValue(stripeEvent);
+
+      Payment.findByStripeId.mockResolvedValue({
+        id: 'pay_123',
+        stripe_payment_intent_id: 'pi_canceled_2',
+        status: 'requires_payment_method',
+      });
+      Payment.updateStatus.mockResolvedValue({
+        id: 'pay_123',
+        status: 'canceled',
+      });
+
+      await request(app)
+        .post('/webhooks/stripe')
+        .set('stripe-signature', createSignature(JSON.stringify(stripeEvent)))
+        .send(JSON.stringify(stripeEvent));
+
+      expect(Payment.updateStatus).toHaveBeenCalledWith('pay_123', 'canceled');
+    });
   });
 });
